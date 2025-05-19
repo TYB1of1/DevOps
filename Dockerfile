@@ -1,13 +1,17 @@
-# Use official Nginx image
-FROM nginx:alpine
+# Use the official Jenkins LTS image as a base
+FROM jenkins/jenkins:lts
 
-# Remove default nginx website files
-RUN rm -rf /usr/share/nginx/html/*
+# Switch to root user to install packages
+USER root
 
-# Copy your HTML files to Nginx web directory
-COPY . /usr/share/nginx/html
+# Install Docker CLI
+RUN apt-get update && \
+    apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common && \
+    curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add - && \
+    add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable" && \
+    apt-get update && \
+    apt-get install -y docker-ce-cli && \
+    rm -rf /var/lib/apt/lists/*
 
-# Expose port 80 (default HTTP port)
-EXPOSE 80
-
-# Start Nginx server (default CMD from image is fine)
+# Switch back to the jenkins user
+USER jenkins
