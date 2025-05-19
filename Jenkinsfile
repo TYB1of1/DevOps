@@ -7,16 +7,15 @@ pipeline {
         DOCKER_HOST = 'unix:///var/run/docker.sock'
     }
 
-    stages {
-        stage('Prepare Environment') {
-            steps {
-                script {
-                    // Verify Docker is installed and accessible
-                    sh 'docker --version'
-                    sh 'docker info'
-                }
-            }
+    stage('Prepare Environment') {
+    steps {
+        script {
+            // Verify Docker is installed and accessible
+            sh 'docker --version'
+            sh 'docker info'
         }
+    }
+}
 
         stage('Clone Repo') {
             steps {
