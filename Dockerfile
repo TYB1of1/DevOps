@@ -1,17 +1,13 @@
-# Use the official Jenkins LTS image as a base
+# Start from official Jenkins image
 FROM jenkins/jenkins:lts
 
 # Switch to root user to install packages
 USER root
 
-# Install Docker CLI
+# Install Docker CLI inside Jenkins container
 RUN apt-get update && \
-    apt-get install -y apt-transport-https ca-certificates curl gnupg-agent software-properties-common && \
-    curl -fsSL https://download.docker.com/linux/debian/gpg | apt-key add - && \
-    add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable" && \
-    apt-get update && \
-    apt-get install -y docker-ce-cli && \
-    rm -rf /var/lib/apt/lists/*
+    apt-get install -y docker.io && \
+    apt-get clean
 
-# Switch back to the jenkins user
+# Switch back to Jenkins user
 USER jenkins
