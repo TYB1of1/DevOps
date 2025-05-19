@@ -1,19 +1,26 @@
-
 pipeline {
-    agent any // Runs on any available agent
+    agent any
 
     environment {
-        // Define image name for consistency
-        IMAGE_NAME = 'my-html-site' // Your GitHub username could be a prefix: 'tyb1of1/my-html-site'
-        // Define the public port for the application
+        IMAGE_NAME = 'my-html-site'
         APP_PORT = 8082
+        DOCKER_HOST = 'unix:///var/run/docker.sock'
     }
 
     stages {
+        stage('Prepare Environment') {
+            steps {
+                script {
+                    // Verify Docker is installed and accessible
+                    sh 'docker --version'
+                    sh 'docker info'
+                }
+            }
+        }
+
         stage('Clone Repo') {
             steps {
                 echo 'Cloning repository...'
-                // Explicitly specify the branch name
                 git url: 'https://github.com/TYB1of1/DevOps.git', branch: 'main'
             }
         }
@@ -22,9 +29,11 @@ pipeline {
             steps {
                 script {
                     echo "Building Docker image: ${env.IMAGE_NAME}..."
-                    // Assumes Dockerfile is in the root of the repository
-                    docker.build("${env.IMAGE_NAME}:${env.BUILD_NUMBER}", ".") // Tag with build number
-                    docker.build("${env.IMAGE_NAME}:latest", ".")      // Also tag as latest
+                    // Build with proper caching and cleanup
+                    sh """
+                        docker build -t ${env.IMAGE_NAME}:${env.BUILD_NUMBER} .
+                        docker tag ${env.IMAGE_NAME}:${env.BUILD_NUMBER} ${env.IMAGE_NAME}:latest
+                    """
                 }
             }
         }
@@ -33,25 +42,20 @@ pipeline {
             steps {
                 script {
                     echo 'Validating HTML files...'
-                    // Ensure your HTML files are in the 'portfolio' directory
-                    // Add all important HTML files you want to validate
                     sh 'docker run --rm -v $(pwd)/portfolio:/mnt dcycle/html-validator:latest /mnt/index.html'
-                    // sh 'docker run --rm -v $(pwd)/portfolio:/mnt dcycle/html-validator:latest /mnt/another-page.html'
                     echo 'HTML validation passed.'
                 }
             }
         }
 
-
-
         stage('Stop Previous Containers') {
             steps {
                 script {
-                    echo "Stopping any existing containers for image: ${env.IMAGE_NAME}..."
-                    // Stop containers based on the image name rather than any container using the port
-                    // The -r flag for xargs means it won't run if there's no input
-                    sh "docker ps -q --filter \"ancestor=${env.IMAGE_NAME}\" | xargs -r docker stop || true"
-                    sh "docker ps -aq --filter \"ancestor=${env.IMAGE_NAME}\" | xargs -r docker rm || true" // Remove stopped containers
+                    echo "Stopping existing containers..."
+                    sh '''
+                        docker ps -q --filter "ancestor=${IMAGE_NAME}" | xargs -r docker stop || true
+                        docker ps -aq --filter "ancestor=${IMAGE_NAME}" | xargs -r docker rm || true
+                    '''
                 }
             }
         }
@@ -59,22 +63,21 @@ pipeline {
         stage('Run Docker Container') {
             steps {
                 script {
-                    echo "Running Docker container from image: ${env.IMAGE_NAME}:${env.BUILD_NUMBER} on port ${env.APP_PORT}..."
-                    // Run the version tagged with the build number
-                    docker.image("${env.IMAGE_NAME}:${env.BUILD_NUMBER}").run("-d -p ${env.APP_PORT}:80")
+                    echo "Running container on port ${env.APP_PORT}..."
+                    sh "docker run -d -p ${env.APP_PORT}:80 --name ${env.IMAGE_NAME}-${env.BUILD_NUMBER} ${env.IMAGE_NAME}:${env.BUILD_NUMBER}"
                 }
             }
         }
 
-        stage('Smoke Test Deployed Site') {
+        stage('Smoke Test') {
             steps {
                 script {
-                    echo "Performing smoke test on deployed site at http://localhost:${env.APP_PORT}..."
-                    sh 'sleep 10' // Give container a moment to initialize
-                    // Check if the site is accessible
-                    // The -f flag fails silently on server errors, -s for silent, -S to show error on fail
-                    sh "curl -sSf http://localhost:${env.APP_PORT} || (echo 'Smoke test failed!' && exit 1)"
-                    echo "Site is up and running on port ${env.APP_PORT}!"
+                    echo "Testing application..."
+                    sh """
+                        sleep 5
+                        curl -sSf http://localhost:${env.APP_PORT} || (echo 'Smoke test failed!' && exit 1)
+                    """
+                    echo "Application is running successfully!"
                 }
             }
         }
@@ -82,16 +85,13 @@ pipeline {
 
     post {
         always {
-            echo 'Pipeline finished.'
-            // Clean up old images if desired (be careful with this in production)
-            // sh 'docker rmi $(docker images -f "dangling=true" -q) || true'
+            echo 'Pipeline execution completed'
         }
         success {
-            echo 'Pipeline executed successfully!'
+            echo 'Pipeline succeeded!'
         }
         failure {
-            echo 'Pipeline failed.'
-            // Add notification steps here if desired (e.g., email, Slack)
+            echo 'Pipeline failed'
         }
     }
 }
