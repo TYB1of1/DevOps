@@ -4,7 +4,8 @@ pipeline {
     stages {
         stage('Clone Repo') {
             steps {
-                git 'https://github.com/TYB1of1/DevOps.git'
+                // Explicitly specify the branch name
+                git url: 'https://github.com/TYB1of1/DevOps.git', branch: 'main'
             }
         }
 
@@ -16,10 +17,19 @@ pipeline {
             }
         }
 
+        stage('Stop Previous Containers') {
+            steps {
+                script {
+                    // Consider adding '|| true' if you don't want the build to fail if no containers are found
+                    sh 'docker ps -q --filter "ancestor=my-html-site" | xargs -r docker stop || true'
+                }
+            }
+        }
+
         stage('Run Docker Container') {
             steps {
                 script {
-                    docker.image('my-html-site').run('-d -p 8080:80')
+                    docker.image('my-html-site').run('-d -p 8082:80')
                 }
             }
         }
