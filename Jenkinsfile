@@ -2,12 +2,12 @@
 
 pipeline {
     // In your Jenkinsfile
+// In your Jenkinsfile
 agent {
     docker {
         image 'my-jenkins-with-docker:latest'
-        // Mount the socket AND run as your host user/group
-        // UID 501, GID 20
-        args '-v /var/run/docker.sock:/var/run/docker.sock --user 501:20'
+        // Mount the socket and add the container's user to host GID 20
+        args '-v /var/run/docker.sock:/var/run/docker.sock --group-add 20'
         reuseNode true
     }
 }
