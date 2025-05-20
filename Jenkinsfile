@@ -1,13 +1,12 @@
+// DevOps/Jenkinsfile
+
 pipeline {
     agent {
         docker {
             image 'my-jenkins-with-docker:latest' // Your custom agent image
             // Mount Docker socket.
-            // --group-add $(stat -c '%g' /var/run/docker.sock) dynamically adds jenkins user to host's docker group GID
-            // If above fails (e.g. stat not available or restricted), try finding GID on host (e.g., `getent group docker`)
-            // and use args '-v /var/run/docker.sock:/var/run/docker.sock --group-add <HOST_DOCKER_GID>'
-            // Or simply try with just the volume mount first, it might work depending on socket permissions on your host.
-            args '-v /var/run/docker.sock:/var/run/docker.sock --group-add $(stat -c \'%g\' /var/run/docker.sock || echo docker)'
+            // REPLACE 999 below with the actual GID of the 'docker' group on your HOST machine
+            args '-v /var/run/docker.sock:/var/run/docker.sock --group-add 999'
             reuseNode true // Good for performance if subsequent stages use the same agent context
         }
     }
@@ -51,6 +50,7 @@ pipeline {
                 // List files to confirm structure after checkout
                 sh 'ls -la' // Lists content of workspace root
                 dir('portfolio') {
+                    sh 'pwd' // Should show workspace/portfolio
                     sh 'ls -la' // Lists content of workspace/portfolio
                 }
             }
@@ -130,18 +130,12 @@ pipeline {
     post {
         always {
             echo 'Pipeline execution finished.'
-            // Example: Clean up old Docker images (optional, be careful with this)
-            // sh "docker image prune -f --filter label=stage=builder || true"
         }
         success {
             echo 'Pipeline Succeeded!'
         }
         failure {
             echo 'Pipeline Failed!'
-            // Example: notify
-            // mail to: 'your-email@example.com',
-            //      subject: "Jenkins Pipeline Failed: ${currentBuild.fullDisplayName}",
-            //      body: "Check console output at ${env.BUILD_URL}console"
         }
     }
 }
