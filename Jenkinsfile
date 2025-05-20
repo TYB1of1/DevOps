@@ -1,15 +1,16 @@
 // DevOps/Jenkinsfile
 
 pipeline {
-    agent {
-        docker {
-            image 'my-jenkins-with-docker:latest' // Your custom agent image
-            // Mount Docker socket.
-            // REPLACE 999 below with the actual GID of the 'docker' group on your HOST machine
-            args '-v /var/run/docker.sock:/var/run/docker.sock --group-add 999'
-            reuseNode true // Good for performance if subsequent stages use the same agent context
-        }
+    // In your Jenkinsfile
+agent {
+    docker {
+        image 'my-jenkins-with-docker:latest'
+        // Mount the socket AND run as your host user/group
+        // UID 501, GID 20
+        args '-v /var/run/docker.sock:/var/run/docker.sock --user 501:20'
+        reuseNode true
     }
+}
 
     environment {
         IMAGE_NAME = 'my-html-site' // Name for your application's Docker image
