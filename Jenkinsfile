@@ -31,7 +31,7 @@ pipeline {
             }
         }
 
-        // ... rest of your stages as they were ...
+       
         stage('Build Docker Image') {
             steps {
                 script {
@@ -43,7 +43,7 @@ pipeline {
                 }
             }
         }
-        // ... etc. ...
+
     }
     post {
         always {
