@@ -2,9 +2,10 @@ pipeline {
     agent {
         docker {
             image 'my-jenkins-with-docker:latest'
-            // Start with this, add --group-add if needed
-            args '-v /var/run/docker.sock:/var/run/docker.sock'
-            reuseNode true
+            // Add the jenkins user in the agent to GID 0 (root)
+            // This matches the GID of the Docker socket in Docker Desktop
+            args '-v /var/run/docker.sock:/var/run/docker.sock --group-add 0'
+            reuseNode true // Runs on the Jenkins controller, which already has the socket mounted
         }
     }
 
@@ -18,8 +19,11 @@ pipeline {
             steps {
                 script {
                     echo "Verifying Docker client installation and connection to daemon..."
+                    sh 'id' // Check user and groups
+                    sh 'ls -l /var/run/docker.sock' // Check socket permissions
                     sh 'docker --version'
-                    sh 'docker info'
+                    sh 'docker ps' // Simple test for Docker daemon access
+                    sh 'docker info' // More comprehensive test
                 }
             }
         }
@@ -31,7 +35,6 @@ pipeline {
             }
         }
 
-        // ... rest of your stages as they were ...
         stage('Build Docker Image') {
             steps {
                 script {
