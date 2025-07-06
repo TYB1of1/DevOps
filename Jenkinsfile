@@ -1,8 +1,9 @@
+// Jenkinsfile
+// -----------------------------------
 pipeline {
     agent {
         docker {
             image 'my-jenkins-with-docker:latest'
-            // Start with this, add --group-add if needed
             args '-v /var/run/docker.sock:/var/run/docker.sock'
             reuseNode true
         }
@@ -14,24 +15,21 @@ pipeline {
     }
 
     stages {
-        stage('Prepare Environment') { // This will run inside the new agent
+        stage('Verify Docker') {
             steps {
-                script {
-                    echo "Verifying Docker client installation and connection to daemon..."
-                    sh 'docker --version'
-                    sh 'docker info'
-                }
+                echo 'Checking Docker CLI...'
+                sh 'docker --version'
+                sh 'docker info'
             }
         }
 
-        stage('Clone Repo') { // SCM checkout is handled by Jenkins into the agent workspace
+        stage('Clone Repo') {
             steps {
-                echo 'Cloning repository into agent workspace...'
-                checkout scm // This is the standard way
+                echo 'Checking out code...'
+                checkout scm
             }
         }
 
-       
         stage('Build Docker Image') {
             steps {
                 script {
@@ -43,8 +41,8 @@ pipeline {
                 }
             }
         }
-
     }
+
     post {
         always {
             echo 'Pipeline execution completed.'
