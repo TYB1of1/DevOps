@@ -1,8 +1,13 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'my-jenkins-with-docker'  // Your custom image with Docker installed
+            args '-v /var/run/docker.sock:/var/run/docker.sock -u root'  // Mount Docker socket and run as root
+            reuseNode true  // Reuse the workspace from the main agent
+        }
+    }
     
     environment {
-        // Set build-specific variables
         IMAGE_NAME = "my-app"
         BUILD_NUMBER = "${env.BUILD_NUMBER}"
     }
@@ -22,9 +27,9 @@ pipeline {
                         echo "User: $(whoami)"
                         echo "Groups: $(groups)"
                         echo "Docker Socket:"
-                        ls -la /var/run/docker.sock || true
+                        ls -la /var/run/docker.sock
                         echo "=== Docker Information ==="
-                        docker info || echo "Docker info failed"
+                        docker info
                     '''
                 }
             }
