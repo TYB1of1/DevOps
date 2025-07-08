@@ -28,4 +28,8 @@ RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get install -y nodejs python3 python3-pip git && \
     rm -rf /var/lib/apt/lists/*
 
+# Add jenkins user to docker group
+RUN groupadd -g 999 docker && \
+    usermod -aG docker jenkins
+
 USER jenkins
