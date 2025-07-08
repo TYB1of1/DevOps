@@ -13,14 +13,14 @@ RUN apt-get update && \
     sudo \
     && rm -rf /var/lib/apt/lists/*
 
-# Install Docker CLI
+# Install Docker
 RUN mkdir -p /etc/apt/keyrings && \
     curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
     chmod a+r /etc/apt/keyrings/docker.gpg && \
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | \
     tee /etc/apt/sources.list.d/docker.list > /dev/null && \
     apt-get update && \
-    apt-get install -y docker-ce-cli docker-ce docker-compose-plugin && \
+    apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin && \
     rm -rf /var/lib/apt/lists/*
 
 # Install additional tools
@@ -28,9 +28,8 @@ RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get install -y nodejs python3 python3-pip git && \
     rm -rf /var/lib/apt/lists/*
 
-# Configure Docker - Modified to handle existing group
-RUN if ! getent group docker; then groupadd -g 999 docker; fi && \
-    usermod -aG docker jenkins && \
+# Configure Docker access
+RUN usermod -aG docker jenkins && \
     mkdir -p /home/jenkins/.docker && \
     chown jenkins:jenkins /home/jenkins/.docker
 
