@@ -28,8 +28,8 @@ RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get install -y nodejs python3 python3-pip git && \
     rm -rf /var/lib/apt/lists/*
 
-# Configure Docker
-RUN groupadd -g 999 docker && \
+# Configure Docker - Modified to handle existing group
+RUN if ! getent group docker; then groupadd -g 999 docker; fi && \
     usermod -aG docker jenkins && \
     mkdir -p /home/jenkins/.docker && \
     chown jenkins:jenkins /home/jenkins/.docker
