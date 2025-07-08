@@ -2,7 +2,7 @@ FROM jenkins/agent:latest
 
 USER root
 
-# Install prerequisites with clean up
+# Install prerequisites
 RUN apt-get update && \
     apt-get install -y \
     apt-transport-https \
@@ -23,23 +23,9 @@ RUN mkdir -p /etc/apt/keyrings && \
     apt-get install -y docker-ce-cli docker-compose-plugin && \
     rm -rf /var/lib/apt/lists/*
 
-# Dynamic Docker group setup (matches host's docker group)
-ARG DOCKER_GID=999
-RUN groupadd -g ${DOCKER_GID} docker && \
-    usermod -aG docker jenkins
-
 # Install additional tools
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get install -y nodejs python3 python3-pip git && \
     rm -rf /var/lib/apt/lists/*
 
-# Ensure proper permissions on docker.sock (will be mounted from host)
-RUN mkdir -p /var/run && \
-    touch /var/run/docker.sock && \
-    chown jenkins:docker /var/run/docker.sock
-
 USER jenkins
-
-# Verify Docker access
-HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD docker ps > /dev/null || exit 1
