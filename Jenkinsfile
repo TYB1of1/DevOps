@@ -1,5 +1,3 @@
-// Jenkinsfile
-// -----------------------------------
 pipeline {
     agent {
         docker {
@@ -39,6 +37,12 @@ pipeline {
                         docker tag ${env.IMAGE_NAME}:${env.BUILD_NUMBER} ${env.IMAGE_NAME}:latest
                     """
                 }
+            }
+        }
+
+        stage('Verify Container') {
+            steps {
+                sh "docker run --rm ${env.IMAGE_NAME}:latest echo 'Image works!'"
             }
         }
     }
