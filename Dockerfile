@@ -2,7 +2,7 @@ FROM jenkins/agent:latest
 
 USER root
 
-# Install prerequisites
+# Install prerequisites with clean up
 RUN apt-get update && \
     apt-get install -y \
     apt-transport-https \
@@ -10,24 +10,36 @@ RUN apt-get update && \
     curl \
     gnupg \
     lsb-release \
-    sudo
+    sudo \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install Docker CLI
+# Install Docker CLI (including docker-compose-plugin)
 RUN mkdir -p /etc/apt/keyrings && \
     curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
     chmod a+r /etc/apt/keyrings/docker.gpg && \
     echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | \
     tee /etc/apt/sources.list.d/docker.list > /dev/null && \
     apt-get update && \
-    apt-get install -y docker-ce-cli
+    apt-get install -y docker-ce-cli docker-compose-plugin && \
+    rm -rf /var/lib/apt/lists/*
 
-# Create docker group (GID 999 typically matches host's docker group)
-RUN groupadd -g 999 docker && \
+# Dynamic Docker group setup (matches host's docker group)
+ARG DOCKER_GID=999
+RUN groupadd -g ${DOCKER_GID} docker && \
     usermod -aG docker jenkins
 
-# Install Node.js, Python, and Git
+# Install additional tools
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
-    apt-get install -y nodejs python3 python3-pip git
+    apt-get install -y nodejs python3 python3-pip git && \
+    rm -rf /var/lib/apt/lists/*
 
-# Switch back to jenkins user (with docker permissions)
+# Ensure proper permissions on docker.sock (will be mounted from host)
+RUN mkdir -p /var/run && \
+    touch /var/run/docker.sock && \
+    chown jenkins:docker /var/run/docker.sock
+
 USER jenkins
+
+# Verify Docker access
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD docker ps > /dev/null || exit 1
