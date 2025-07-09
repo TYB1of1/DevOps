@@ -22,4 +22,5 @@ RUN apt-get update && \
     apt-get install -y git && \
     rm -rf /var/lib/apt/lists/*
 
-USER jenkins
+# DON'T switch back to jenkins at the end:
+# USER jenkins
