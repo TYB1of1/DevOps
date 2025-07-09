@@ -1,36 +1,30 @@
+# Build this image first: `docker build -t my-jenkins-with-docker .`
 FROM jenkins/agent:latest
 
 USER root
 
-# Install prerequisites
+# Install Docker CLI (same version as host)
 RUN apt-get update && \
     apt-get install -y \
-    apt-transport-https \
-    ca-certificates \
-    curl \
-    gnupg \
-    lsb-release \
-    sudo \
-    && rm -rf /var/lib/apt/lists/*
-
-# Install Docker
-RUN mkdir -p /etc/apt/keyrings && \
-    curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg && \
-    chmod a+r /etc/apt/keyrings/docker.gpg && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" | \
-    tee /etc/apt/sources.list.d/docker.list > /dev/null && \
+        apt-transport-https \
+        ca-certificates \
+        curl \
+        gnupg \
+        lsb-release && \
+    curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg && \
+    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list && \
     apt-get update && \
-    apt-get install -y docker-ce docker-ce-cli containerd.io docker-compose-plugin && \
+    apt-get install -y docker-ce-cli && \
     rm -rf /var/lib/apt/lists/*
 
-# Install additional tools
+# Install Node.js (example for a Node.js app)
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
-    apt-get install -y nodejs python3 python3-pip git && \
+    apt-get install -y nodejs
+
+# Install other tools (optional)
+RUN apt-get update && \
+    apt-get install -y git python3 python3-pip && \
     rm -rf /var/lib/apt/lists/*
 
-# Configure Docker access
-RUN usermod -aG docker jenkins && \
-    mkdir -p /home/jenkins/.docker && \
-    chown jenkins:jenkins /home/jenkins/.docker
-
+# Switch back to Jenkins user
 USER jenkins
