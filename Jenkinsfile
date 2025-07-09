@@ -6,23 +6,22 @@ pipeline {
         BUILD_NUMBER = "${env.BUILD_NUMBER}"
     }
     
-stages {
-    stage('Prepare Docker (DinD)') {
-        agent {
-            docker {
-                image 'docker:dind'  // Official DinD image
-                args '--privileged'  // Required for DinD
-                reuseNode true
+    stages {
+        stage('Prepare Docker (DinD)') {
+            agent {
+                docker {
+                    image 'docker:dind'
+                    args '--privileged'
+                    reuseNode true
+                }
+            }
+            steps {
+                script {
+                    sh 'docker --version'
+                    sh 'docker info'
+                }
             }
         }
-        steps {
-            script {
-                sh 'docker --version'
-                sh 'docker info'
-            }
-        }
-    }
-}
         
         stage('Build') {
             agent {
@@ -92,4 +91,4 @@ stages {
             echo "Build failed!"
         }
     }
-
+}
