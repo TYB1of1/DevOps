@@ -6,22 +6,23 @@ pipeline {
         BUILD_NUMBER = "${env.BUILD_NUMBER}"
     }
     
-    stages {
-        stage('Prepare Docker') {
-            agent {
-                docker {
-                    image 'my-jenkins-with-docker'
-                    args '-v /var/run/docker.sock:/var/run/docker.sock -u root'
-                    reuseNode true
-                }
-            }
-            steps {
-                script {
-                    sh 'docker --version'
-                    sh 'docker info'
-                }
+stages {
+    stage('Prepare Docker (DinD)') {
+        agent {
+            docker {
+                image 'docker:dind'  // Official DinD image
+                args '--privileged'  // Required for DinD
+                reuseNode true
             }
         }
+        steps {
+            script {
+                sh 'docker --version'
+                sh 'docker info'
+            }
+        }
+    }
+}
         
         stage('Build') {
             agent {
