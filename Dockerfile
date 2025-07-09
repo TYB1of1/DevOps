@@ -1,9 +1,9 @@
-# Build this image first: `docker build -t my-jenkins-with-docker .`
+# Use the official Jenkins agent image as base
 FROM jenkins/agent:latest
 
 USER root
 
-# Install Docker CLI (same version as host)
+# Install Docker CLI (same version as host, recommended)
 RUN apt-get update && \
     apt-get install -y \
         apt-transport-https \
@@ -17,14 +17,14 @@ RUN apt-get update && \
     apt-get install -y docker-ce-cli && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Node.js (example for a Node.js app)
+# Install Node.js
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get install -y nodejs
 
-# Install other tools (optional)
+# Install other tools if needed
 RUN apt-get update && \
     apt-get install -y git python3 python3-pip && \
     rm -rf /var/lib/apt/lists/*
 
-# Switch back to Jenkins user
-USER jenkins
+# Do NOT switch back to jenkins user — stay root for Docker access
+# USER jenkins
