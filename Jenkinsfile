@@ -167,3 +167,4 @@ pipeline {
             // slackSend(color: 'warning', message: "UNSTABLE: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'")
         }
     }
+}
