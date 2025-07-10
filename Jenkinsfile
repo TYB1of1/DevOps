@@ -5,11 +5,11 @@ pipeline {
         // Docker image configuration
         IMAGE_NAME = "my-app"
         IMAGE_TAG = "${env.BUILD_NUMBER}"
-        
+
         // Credential IDs (configure these in Jenkins)
         GIT_CREDENTIALS_ID = 'github-credentials'
         DOCKER_CREDENTIALS_ID = 'dockerhub-credentials'
-        
+
         // Workspace paths
         WORKSPACE_PATH = "${env.WORKSPACE}"
     }
@@ -17,10 +17,10 @@ pipeline {
     options {
         // Discard old builds to save space
         buildDiscarder(logRotator(numToKeepStr: '10'))
-        
+
         // Timeout after 30 minutes
         timeout(time: 30, unit: 'MINUTES')
-        
+
         // Retry once if failed
         retry(1)
     }
@@ -37,15 +37,11 @@ pipeline {
 
         stage('Checkout SCM') {
             steps {
-                checkout([
-                    $class: 'GitSCM',
-                    branches: [[name: '*/main']],
-                    extensions: [],
-                    userRemoteConfigs: [[
-                        credentialsId: "${GIT_CREDENTIALS_ID}",
-                        url: 'https://github.com/TYB1of1/DevOps.git'
-                    ]]
-                ])
+                // ✅ Use the simpler git step
+                git branch: 'main',
+                    credentialsId: "${GIT_CREDENTIALS_ID}",
+                    url: 'https://github.com/TYB1of1/DevOps.git'
+
                 sh 'git --version'
                 sh 'ls -al'
             }
@@ -108,14 +104,14 @@ pipeline {
                         sh """
                             echo "Logging in to Docker Hub..."
                             echo \$DOCKER_PASSWORD | docker login -u \$DOCKER_USERNAME --password-stdin
-                            
+
                             echo "Tagging and pushing image..."
                             docker tag ${IMAGE_NAME}:${IMAGE_TAG} \$DOCKER_USERNAME/${IMAGE_NAME}:${IMAGE_TAG}
                             docker tag ${IMAGE_NAME}:${IMAGE_TAG} \$DOCKER_USERNAME/${IMAGE_NAME}:latest
-                            
+
                             docker push \$DOCKER_USERNAME/${IMAGE_NAME}:${IMAGE_TAG}
                             docker push \$DOCKER_USERNAME/${IMAGE_NAME}:latest
-                            
+
                             docker logout
                         """
                     }
@@ -140,7 +136,6 @@ pipeline {
         always {
             echo "Pipeline completed - cleaning up"
             script {
-                // Only try to clean up if we're on a node with Docker
                 if (isUnix()) {
                     try {
                         sh 'docker system prune -f --filter "until=24h" || true'
@@ -153,18 +148,12 @@ pipeline {
         }
         success {
             echo "✅ Pipeline succeeded!"
-            // Uncomment if you have Slack configured
-            // slackSend(color: 'good', message: "SUCCESS: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'")
         }
         failure {
             echo "❌ Pipeline failed!"
-            // Uncomment if you have Slack configured
-            // slackSend(color: 'danger', message: "FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'")
         }
         unstable {
             echo "⚠️ Pipeline unstable!"
-            // Uncomment if you have Slack configured
-            // slackSend(color: 'warning', message: "UNSTABLE: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'")
         }
     }
 }
