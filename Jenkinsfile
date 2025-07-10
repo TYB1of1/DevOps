@@ -1,10 +1,5 @@
 pipeline {
-  agent {
-    docker {
-      image 'my-jenkins-with-docker'
-      args '-v /var/run/docker.sock:/var/run/docker.sock'
-    }
-  }
+  agent any
 
   environment {
     IMAGE_NAME = "my-app"
@@ -12,12 +7,17 @@ pipeline {
   }
 
   stages {
+    stage('Checkout') {
+      steps {
+        checkout scm
+      }
+    }
+
     stage('Build') {
       agent {
         docker {
           image 'my-jenkins-with-docker'
           args '-v /var/run/docker.sock:/var/run/docker.sock'
-          reuseNode true
         }
       }
       steps {
@@ -37,7 +37,6 @@ pipeline {
         docker {
           image 'my-jenkins-with-docker'
           args '-v /var/run/docker.sock:/var/run/docker.sock'
-          reuseNode true
         }
       }
       steps {
@@ -55,7 +54,6 @@ pipeline {
         docker {
           image 'my-jenkins-with-docker'
           args '-v /var/run/docker.sock:/var/run/docker.sock'
-          reuseNode true
         }
       }
       steps {
@@ -76,10 +74,8 @@ pipeline {
 
   post {
     always {
-      script {
-        echo "Cleaning up Docker..."
-        sh 'docker system prune -f || true'
-      }
+      echo "Cleaning up Docker..."
+      sh 'docker system prune -f || true'
     }
     success {
       echo "✅ Build succeeded!"
