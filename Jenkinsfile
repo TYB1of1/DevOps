@@ -7,6 +7,13 @@ pipeline {
   }
 
   stages {
+    stage('Checkout') {
+      steps {
+        git branch: 'main', 
+            url: 'https://github.com/TYB1of1/DevOps.git'
+      }
+    }
+
     stage('Build') {
       agent {
         docker {
