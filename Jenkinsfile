@@ -38,17 +38,13 @@ pipeline {
 stage('Checkout SCM') {
     steps {
         cleanWs()
-        checkout([$class: 'GitSCM', 
-                  branches: [[name: 'main']], 
-                  doGenerateSubmoduleConfigurations: false, 
-                  extensions: [], 
-                  userRemoteConfigs: [[url: 'https://github.com/TYB1of1/DevOps.git']],
-                  gitTool: 'Default' // or whatever name your Git tool is configured as
-        ])
+        git branch: 'main',
+            url: 'https://github.com/TYB1of1/DevOps.git'
         sh 'git --version'
         sh 'ls -al'
     }
 }
+
 
 
         stage('Build Docker Image') {
