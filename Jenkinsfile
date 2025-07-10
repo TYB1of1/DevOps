@@ -1,11 +1,23 @@
 pipeline {
     agent any
 
+    environment {
+        IMAGE_NAME = "my-app"
+        BUILD_NUMBER = "${env.BUILD_NUMBER}"
+    }
+
     stages {
         stage('Checkout') {
             steps {
-                git branch: 'main', 
-                    url: 'https://github.com/TYB1of1/DevOps.git'
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: '*/main']],
+                    extensions: [],
+                    userRemoteConfigs: [[
+                        url: 'https://github.com/TYB1of1/DevOps.git',
+                        credentialsId: '' // Add credential ID if private repo
+                    ]]
+                ])
             }
         }
 
