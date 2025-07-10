@@ -76,7 +76,7 @@ pipeline {
 
   post {
     always {
-      node {
+      script {
         echo "Cleaning up Docker..."
         sh 'docker system prune -f || true'
       }
