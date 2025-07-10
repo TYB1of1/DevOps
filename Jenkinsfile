@@ -35,17 +35,21 @@ pipeline {
             }
         }
 
-        stage('Checkout SCM') {
-            steps {
-                // ✅ Use the simpler git step
-                git branch: 'main',
-                    credentialsId: "${GIT_CREDENTIALS_ID}",
-                    url: 'https://github.com/TYB1of1/DevOps.git'
+stage('Checkout SCM') {
+    steps {
+        cleanWs()
+        checkout([$class: 'GitSCM', 
+                  branches: [[name: 'main']], 
+                  doGenerateSubmoduleConfigurations: false, 
+                  extensions: [], 
+                  userRemoteConfigs: [[url: 'https://github.com/TYB1of1/DevOps.git']],
+                  gitTool: 'Default' // or whatever name your Git tool is configured as
+        ])
+        sh 'git --version'
+        sh 'ls -al'
+    }
+}
 
-                sh 'git --version'
-                sh 'ls -al'
-            }
-        }
 
         stage('Build Docker Image') {
             agent {
