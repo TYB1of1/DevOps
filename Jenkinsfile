@@ -81,20 +81,17 @@ pipeline {
         BUILD_NUMBER = "${env.BUILD_NUMBER}"
     }
 
-  post {
-     always {
-       node {
-          echo "Cleaning up Docker..."
-          sh 'docker system prune -f || true'
-       }
+post {
+  always {
+    script {
+      echo "Cleaning up Docker..."
+      sh 'docker system prune -f || true'
     }
-  
-
-        success {
-            echo "✅ Build succeeded!"
-        }
-        failure {
-            echo "❌ Build failed!"
-        }
-    }
+  }
+  success {
+    echo "✅ Build succeeded!"
+  }
+  failure {
+    echo "❌ Build failed!"
+  }
 }
