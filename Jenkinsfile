@@ -6,13 +6,21 @@ pipeline {
     BUILD_NUMBER = "${env.BUILD_NUMBER}"
   }
 
-  stages {
-    stage('Checkout') {
-      steps {
-        git branch: 'main', 
-            url: 'https://github.com/TYB1of1/DevOps.git'
-      }
+stage('Checkout') {
+  steps {
+    script {
+      sh 'pwd'
+      sh 'ls -la'
     }
+    git branch: 'main',
+        url: 'https://github.com/TYB1of1/DevOps.git'
+    script {
+      sh 'pwd'
+      sh 'ls -la'
+      sh 'ls -la .git || true' // Check if .git directory exists after clone
+    }
+  }
+
 
     stage('Build') {
       agent {
