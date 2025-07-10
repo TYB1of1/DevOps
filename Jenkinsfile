@@ -6,14 +6,12 @@ pipeline {
     }
   }
 
-  stages {
-    stage('Checkout') {
-      steps {
-        git branch: 'main',
-            url: 'https://github.com/TYB1of1/DevOps.git'
-      }
-    }
+  environment {
+    IMAGE_NAME = "my-app"
+    BUILD_NUMBER = "${env.BUILD_NUMBER}"
+  }
 
+  stages {
     stage('Build') {
       agent {
         docker {
@@ -76,14 +74,9 @@ pipeline {
     }
   }
 
-  environment {
-    IMAGE_NAME = "my-app"
-    BUILD_NUMBER = "${env.BUILD_NUMBER}"
-  }
-
   post {
     always {
-      script {
+      node {
         echo "Cleaning up Docker..."
         sh 'docker system prune -f || true'
       }
