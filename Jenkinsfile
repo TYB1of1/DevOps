@@ -2,17 +2,26 @@ pipeline {
     agent any
 
     environment {
+        // Docker image configuration
         IMAGE_NAME = "my-app"
         IMAGE_TAG = "${env.BUILD_NUMBER}"
 
+        // Credential IDs (configure these in Jenkins)
+        GIT_CREDENTIALS_ID = 'github-credentials'
         DOCKER_CREDENTIALS_ID = 'dockerhub-credentials'
 
+        // Workspace paths
         WORKSPACE_PATH = "${env.WORKSPACE}"
     }
 
     options {
+        // Discard old builds to save space
         buildDiscarder(logRotator(numToKeepStr: '10'))
+
+        // Timeout after 30 minutes
         timeout(time: 30, unit: 'MINUTES')
+
+        // Retry once if failed
         retry(1)
     }
 
@@ -28,9 +37,11 @@ pipeline {
 
         stage('Checkout SCM') {
             steps {
-                cleanWs()
+                // ✅ Use the simpler git step
                 git branch: 'main',
+                    credentialsId: "${GIT_CREDENTIALS_ID}",
                     url: 'https://github.com/TYB1of1/DevOps.git'
+
                 sh 'git --version'
                 sh 'ls -al'
             }
@@ -124,18 +135,16 @@ pipeline {
     post {
         always {
             echo "Pipeline completed - cleaning up"
-            node {
-                script {
-                    if (isUnix()) {
-                        try {
-                            sh 'docker system prune -f --filter "until=24h" || true'
-                        } catch (Exception e) {
-                            echo "Cleanup failed: ${e.getMessage()}"
-                        }
+            script {
+                if (isUnix()) {
+                    try {
+                        sh 'docker system prune -f --filter "until=24h" || true'
+                    } catch (Exception e) {
+                        echo "Cleanup failed: ${e.getMessage()}"
                     }
                 }
-                cleanWs()
             }
+            cleanWs()
         }
         success {
             echo "✅ Pipeline succeeded!"
