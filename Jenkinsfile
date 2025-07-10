@@ -149,19 +149,21 @@ pipeline {
                     }
                 }
             }
-            }
             cleanWs()
         }
         success {
             echo "✅ Pipeline succeeded!"
-            slackSend(color: 'good', message: "SUCCESS: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'")
+            // Uncomment if you have Slack configured
+            // slackSend(color: 'good', message: "SUCCESS: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'")
         }
         failure {
             echo "❌ Pipeline failed!"
-            slackSend(color: 'danger', message: "FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'")
+            // Uncomment if you have Slack configured
+            // slackSend(color: 'danger', message: "FAILED: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'")
         }
         unstable {
             echo "⚠️ Pipeline unstable!"
-            slackSend(color: 'warning', message: "UNSTABLE: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'")
+            // Uncomment if you have Slack configured
+            // slackSend(color: 'warning', message: "UNSTABLE: Job '${env.JOB_NAME} [${env.BUILD_NUMBER}]'")
         }
     }
