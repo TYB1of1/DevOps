@@ -1,26 +1,17 @@
-# Jenkins controller with Docker CLI installed
-FROM jenkins/jenkins:lts
+# Use a lightweight base web server — nginx is common for static sites
+FROM nginx:alpine
 
-USER root
+# Install Node.js + npm so you can install htmlhint
+RUN apk add --no-cache nodejs npm
 
-# Install Docker CLI
-RUN apt-get update && \
-    apt-get install -y \
-      apt-transport-https \
-      ca-certificates \
-      curl \
-      gnupg \
-      lsb-release && \
-    curl -fsSL https://download.docker.com/linux/debian/gpg | gpg --dearmor -o /usr/share/keyrings/docker-archive-keyring.gpg && \
-    echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/docker-archive-keyring.gpg] https://download.docker.com/linux/debian $(lsb_release -cs) stable" > /etc/apt/sources.list.d/docker.list && \
-    apt-get update && \
-    apt-get install -y docker-ce-cli && \
-    rm -rf /var/lib/apt/lists/*
+# Install htmlhint globally
+RUN npm install -g htmlhint
 
-# Recommended: install git so pipelines can checkout code
-RUN apt-get update && \
-    apt-get install -y git && \
-    rm -rf /var/lib/apt/lists/*
+# Copy your site files into the nginx web root
+COPY . /usr/share/nginx/html
 
-# DON'T switch back to jenkins at the end:
-# USER jenkins
+# Expose port 80 by default (nginx listens here)
+EXPOSE 80
+
+# Start nginx
+CMD ["nginx", "-g", "daemon off;"]
