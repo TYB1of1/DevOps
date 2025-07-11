@@ -5,6 +5,7 @@ pipeline {
         IMAGE_NAME = "my-app"
         IMAGE_TAG = "${BUILD_NUMBER}"
         DOCKER_CREDENTIALS_ID = 'dockerhub-credentials'
+        SSH_CREDENTIALS_ID = 'jenkins_local_ssh' // Your SSH key credential
     }
 
     options {
@@ -18,58 +19,58 @@ pipeline {
             steps {
                 echo "Initializing build ${BUILD_NUMBER}"
                 echo "Workspace: ${env.WORKSPACE}"
+                sh 'printenv'
             }
         }
 
-        stage('Check Git Version') {
+        stage('Setup Environment') {
             steps {
-                sh 'git --version'
+                script {
+                    // Verify Docker is available
+                    try {
+                        sh 'docker --version'
+                    } catch (Exception e) {
+                        error "Docker not found! Please ensure Docker is installed and running."
+                    }
+                    
+                    // Verify SSH access
+                    sshagent([SSH_CREDENTIALS_ID]) {
+                        sh 'ssh -o StrictHostKeyChecking=no localhost "docker --version"'
+                    }
+                }
             }
         }
 
         stage('Checkout') {
             steps {
-                echo "Checking out from GitHub..."
-                git url: 'https://github.com/TYB1of1/DevOps.git', branch: 'main'
-            }
-        }
-
-        stage('Build') {
-            steps {
-                echo "Listing files to confirm checkout..."
-                sh 'ls -la'
+                checkout([
+                    $class: 'GitSCM',
+                    branches: [[name: 'main']],
+                    userRemoteConfigs: [[url: 'https://github.com/TYB1of1/DevOps.git']],
+                    extensions: [[$class: 'CleanBeforeCheckout']]
+                ])
+                sh 'git log -1 --pretty=%B'
             }
         }
 
         stage('Build Docker Image') {
-            agent {
-                docker {
-                    image 'docker:latest'
-                    args '-v /var/run/docker.sock:/var/run/docker.sock'
-                    reuseNode true
-                }
-            }
             steps {
-                echo "Building Docker image..."
-                sh """
-                    docker version
-                    docker build -t ${IMAGE_NAME}:${IMAGE_TAG} .
-                    docker images
-                """
+                sshagent([SSH_CREDENTIALS_ID]) {
+                    sh """
+                        ssh localhost "cd ${WORKSPACE} && docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
+                        ssh localhost "docker images | grep ${IMAGE_NAME}"
+                    """
+                }
             }
         }
 
         stage('Run Tests') {
-            agent {
-                docker {
-                    image 'docker:latest'
-                    args '-v /var/run/docker.sock:/var/run/docker.sock'
-                    reuseNode true
-                }
-            }
             steps {
-                echo "Running tests..."
-                sh "docker run --rm ${IMAGE_NAME}:${IMAGE_TAG} npm test || echo 'No tests defined'"
+                sshagent([SSH_CREDENTIALS_ID]) {
+                    sh """
+                        ssh localhost "docker run --rm ${IMAGE_NAME}:${IMAGE_TAG} npm test || echo 'No tests defined'"
+                    """
+                }
             }
         }
 
@@ -77,30 +78,24 @@ pipeline {
             when {
                 branch 'main'
             }
-            agent {
-                docker {
-                    image 'docker:latest'
-                    args '-v /var/run/docker.sock:/var/run/docker.sock'
-                    reuseNode true
-                }
-            }
             steps {
-                withCredentials([usernamePassword(
-                    credentialsId: "${DOCKER_CREDENTIALS_ID}",
-                    passwordVariable: 'DOCKER_PASSWORD',
-                    usernameVariable: 'DOCKER_USERNAME'
-                )]) {
-                    sh """
-                        echo \$DOCKER_PASSWORD | docker login -u \$DOCKER_USERNAME --password-stdin
-
-                        docker tag ${IMAGE_NAME}:${IMAGE_TAG} \$DOCKER_USERNAME/${IMAGE_NAME}:${IMAGE_TAG}
-                        docker tag ${IMAGE_NAME}:${IMAGE_TAG} \$DOCKER_USERNAME/${IMAGE_NAME}:latest
-
-                        docker push \$DOCKER_USERNAME/${IMAGE_NAME}:${IMAGE_TAG}
-                        docker push \$DOCKER_USERNAME/${IMAGE_NAME}:latest
-
-                        docker logout
-                    """
+                sshagent([SSH_CREDENTIALS_ID]) {
+                    withCredentials([usernamePassword(
+                        credentialsId: DOCKER_CREDENTIALS_ID,
+                        passwordVariable: 'DOCKER_PASSWORD',
+                        usernameVariable: 'DOCKER_USERNAME'
+                    )]) {
+                        sh """
+                            ssh localhost "
+                                echo \$DOCKER_PASSWORD | docker login -u \$DOCKER_USERNAME --password-stdin
+                                docker tag ${IMAGE_NAME}:${IMAGE_TAG} \$DOCKER_USERNAME/${IMAGE_NAME}:${IMAGE_TAG}
+                                docker tag ${IMAGE_NAME}:${IMAGE_TAG} \$DOCKER_USERNAME/${IMAGE_NAME}:latest
+                                docker push \$DOCKER_USERNAME/${IMAGE_NAME}:${IMAGE_TAG}
+                                docker push \$DOCKER_USERNAME/${IMAGE_NAME}:latest
+                                docker logout
+                            "
+                        """
+                    }
                 }
             }
         }
@@ -110,8 +105,14 @@ pipeline {
                 branch 'main'
             }
             steps {
-                echo "Deployment would happen here."
-                // Add your deployment logic here
+                sshagent([SSH_CREDENTIALS_ID]) {
+                    script {
+                        // Example deployment command
+                        sh 'ssh localhost "echo \'Deployment would happen here\'"'
+                        // Actual deployment might be:
+                        // sh 'ssh localhost "docker stack deploy -c docker-compose.yml myapp"'
+                    }
+                }
             }
         }
     }
@@ -119,21 +120,18 @@ pipeline {
     post {
         always {
             echo "Cleaning up..."
-            script {
-                if (isUnix()) {
-                    sh 'docker system prune -f --filter "until=24h" || true'
-                }
+            sshagent([SSH_CREDENTIALS_ID]) {
+                sh 'ssh localhost "docker system prune -f --filter until=24h" || true'
             }
             cleanWs()
         }
         success {
             echo "✅ Pipeline succeeded!"
+            slackSend(color: 'good', message: "Build ${BUILD_NUMBER} succeeded!")
         }
         failure {
             echo "❌ Pipeline failed!"
-        }
-        unstable {
-            echo "⚠️ Pipeline unstable!"
+            slackSend(color: 'danger', message: "Build ${BUILD_NUMBER} failed!")
         }
     }
 }
