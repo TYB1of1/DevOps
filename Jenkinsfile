@@ -1,125 +1,71 @@
 pipeline {
-    agent any
+    agent any // Ensure Docker is installed and usable on the agent
 
     environment {
-        IMAGE_NAME = "my-app"
-        IMAGE_TAG = "${BUILD_NUMBER}"
-        DOCKER_CREDENTIALS_ID = 'dockerhub-credentials'
-        SSH_CREDENTIALS_ID = 'jenkins_local_ssh' // Your SSH key credential
-    }
-
-    options {
-        buildDiscarder(logRotator(numToKeepStr: '10'))
-        timeout(time: 30, unit: 'MINUTES')
-        retry(1)
+        DOCKER_IMAGE_NAME = 'my-html-site' // Docker image name
+        DOCKER_IMAGE_TAG = "${env.BUILD_NUMBER ?: 'latest'}" // Use build number or 'latest'
+        CONTAINER_NAME = 'portfolio-site-container' // Name for the running container
+        HOST_PORT = 8080 // Host port to expose
+        CONTAINER_PORT = 80 // Container port to map
     }
 
     stages {
-        stage('Initialize') {
-            steps {
-                echo "Initializing build ${BUILD_NUMBER}"
-                echo "Workspace: ${env.WORKSPACE}"
-                sh 'printenv'
-            }
-        }
-        
-stage('Debug') {
-    steps {
-        sh 'whoami'
-        sh 'pwd'
-        sh 'ls -la /usr/bin/docker || echo "Docker not found"'
-        sh 'env'
-    }
-}
-        stage('Setup Environment') {
-            steps {
-                script {
-                    // Verify Docker is available
-                    try {
-                        sh 'docker --version'
-                    } catch (Exception e) {
-                        error "Docker not found! Please ensure Docker is installed and running."
-                    }
-                    
-                    // Verify SSH access
-                    sshagent([SSH_CREDENTIALS_ID]) {
-                        sh 'ssh -o StrictHostKeyChecking=no localhost "docker --version"'
-                    }
-                }
-            }
-        }
-
         stage('Checkout') {
             steps {
-                checkout([
-                    $class: 'GitSCM',
-                    branches: [[name: 'main']],
-                    userRemoteConfigs: [[url: 'https://github.com/TYB1of1/DevOps.git']],
-                    extensions: [[$class: 'CleanBeforeCheckout']]
-                ])
-                sh 'git log -1 --pretty=%B'
+                // Checkout source code from the specified Git repo
+                git 'https://github.com/TYB1of1/DevOps.git'
             }
         }
 
-        stage('Build Docker Image') {
+        stage('Build') {
             steps {
-                sshagent([SSH_CREDENTIALS_ID]) {
-                    sh """
-                        ssh localhost "cd ${WORKSPACE} && docker build -t ${IMAGE_NAME}:${IMAGE_TAG} ."
-                        ssh localhost "docker images | grep ${IMAGE_NAME}"
-                    """
+                script {
+                    echo "Building Docker image: ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
+                    docker.build("${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}", '.')
                 }
             }
         }
 
-        stage('Run Tests') {
+        stage('Test') {
             steps {
-                sshagent([SSH_CREDENTIALS_ID]) {
-                    sh """
-                        ssh localhost "docker run --rm ${IMAGE_NAME}:${IMAGE_TAG} npm test || echo 'No tests defined'"
-                    """
+                script {
+                    echo "Running tests inside Docker container..."
+                    sh "docker run --rm ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} pytest tests/ --cov=src --cov-report=term-missing"
                 }
             }
         }
 
-        stage('Push to Registry') {
-            when {
-                branch 'main'
-            }
+        stage('Code Quality') {
             steps {
-                sshagent([SSH_CREDENTIALS_ID]) {
-                    withCredentials([usernamePassword(
-                        credentialsId: DOCKER_CREDENTIALS_ID,
-                        passwordVariable: 'DOCKER_PASSWORD',
-                        usernameVariable: 'DOCKER_USERNAME'
-                    )]) {
-                        sh """
-                            ssh localhost "
-                                echo \$DOCKER_PASSWORD | docker login -u \$DOCKER_USERNAME --password-stdin
-                                docker tag ${IMAGE_NAME}:${IMAGE_TAG} \$DOCKER_USERNAME/${IMAGE_NAME}:${IMAGE_TAG}
-                                docker tag ${IMAGE_NAME}:${IMAGE_TAG} \$DOCKER_USERNAME/${IMAGE_NAME}:latest
-                                docker push \$DOCKER_USERNAME/${IMAGE_NAME}:${IMAGE_TAG}
-                                docker push \$DOCKER_USERNAME/${IMAGE_NAME}:latest
-                                docker logout
-                            "
-                        """
+                script {
+                    echo "Running code quality checks inside Docker container..."
+                    try {
+                        sh "docker run --rm ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} flake8 src/"
+                        sh "docker run --rm ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} pylint src/"
+                        echo "Code quality checks passed successfully!"
+                    } catch (Exception e) {
+                        echo "Code quality checks found issues: ${e.message}"
+                        currentBuild.result = 'UNSTABLE'
+                        echo "Marking build as UNSTABLE due to code quality issues"
                     }
                 }
             }
         }
 
         stage('Deploy') {
-            when {
-                branch 'main'
-            }
             steps {
-                sshagent([SSH_CREDENTIALS_ID]) {
-                    script {
-                        // Example deployment command
-                        sh 'ssh localhost "echo \'Deployment would happen here\'"'
-                        // Actual deployment might be:
-                        // sh 'ssh localhost "docker stack deploy -c docker-compose.yml myapp"'
-                    }
+                script {
+                    def fullImageName = "${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
+                    echo "Deploying Docker container from image: ${fullImageName}"
+
+                    // Stop and remove any existing container with the same name
+                    sh "docker stop ${CONTAINER_NAME} || true"
+                    sh "docker rm ${CONTAINER_NAME} || true"
+
+                    // Run the new container
+                    sh "docker run -d --name ${CONTAINER_NAME} -p ${HOST_PORT}:${CONTAINER_PORT} ${fullImageName}"
+
+                    echo "Deployment complete. Site should be accessible at http://<jenkins_agent_ip>:${HOST_PORT}"
                 }
             }
         }
@@ -127,19 +73,16 @@ stage('Debug') {
 
     post {
         always {
-            echo "Cleaning up..."
-            sshagent([SSH_CREDENTIALS_ID]) {
-                sh 'ssh localhost "docker system prune -f --filter until=24h" || true'
-            }
-            cleanWs()
+            echo "Pipeline finished."
         }
         success {
-            echo "✅ Pipeline succeeded!"
-            slackSend(color: 'good', message: "Build ${BUILD_NUMBER} succeeded!")
+            echo "Pipeline executed successfully. Container ${CONTAINER_NAME} should be running."
         }
         failure {
-            echo "❌ Pipeline failed!"
-            slackSend(color: 'danger', message: "Build ${BUILD_NUMBER} failed!")
+            echo "Pipeline failed. Check console output for errors."
+        }
+        unstable {
+            echo "Pipeline completed with code quality issues."
         }
     }
 }
