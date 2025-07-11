@@ -40,8 +40,7 @@ pipeline {
                 script {
                     echo "Running code quality checks inside Docker container..."
                     try {
-                        sh "docker run --rm ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} flake8 src/"
-                        sh "docker run --rm ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} pylint src/"
+                        sh "docker run --rm ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} htmlhint src/"
                         echo "Code quality checks passed successfully!"
                     } catch (Exception e) {
                         echo "Code quality checks found issues: ${e.message}"
