@@ -2,17 +2,17 @@ pipeline {
     agent any // Ensure Docker is installed and usable on the agent
 
     environment {
-        DOCKER_IMAGE_NAME = 'my-html-site' // Docker image name
-        DOCKER_IMAGE_TAG = "${env.BUILD_NUMBER ?: 'latest'}" // Use build number or 'latest'
-        CONTAINER_NAME = 'portfolio-site-container' // Name for the running container
-        HOST_PORT = 8080 // Host port to expose
-        CONTAINER_PORT = 80 // Container port to map
+        DOCKER_IMAGE_NAME = 'my-html-site' // Name of Docker image
+        DOCKER_IMAGE_TAG = "${env.BUILD_NUMBER ?: 'latest'}" // Tag with build number or 'latest'
+        CONTAINER_NAME = 'portfolio-site-container' // Name of running container
+        HOST_PORT = 8080 // Port on host
+        CONTAINER_PORT = 80 // Port inside container
     }
 
     stages {
         stage('Checkout') {
             steps {
-                // Checkout source code from the specified Git repo
+                // Clone your HTML/CSS repo
                 git 'https://github.com/TYB1of1/DevOps.git'
             }
         }
@@ -29,8 +29,16 @@ pipeline {
         stage('Test') {
             steps {
                 script {
-                    echo "Running tests inside Docker container..."
-                    sh "docker run --rm ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} pytest tests/ --cov=src --cov-report=term-missing"
+                    echo "Running basic HTML validation tests..."
+                    try {
+                        // This 'test' could be more advanced — for now, same as lint
+                        sh "docker run --rm ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} htmlhint ."
+                        echo "HTML tests passed successfully!"
+                    } catch (Exception e) {
+                        echo "HTML tests found issues: ${e.message}"
+                        currentBuild.result = 'UNSTABLE'
+                        echo "Marking build as UNSTABLE due to HTML test failures"
+                    }
                 }
             }
         }
@@ -38,14 +46,14 @@ pipeline {
         stage('Code Quality') {
             steps {
                 script {
-                    echo "Running code quality checks inside Docker container..."
+                    echo "Running code quality checks (HTML lint)..."
                     try {
-                        sh "docker run --rm ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} htmlhint src/"
-                        echo "Code quality checks passed successfully!"
+                        sh "docker run --rm ${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG} htmlhint ."
+                        echo "HTML linting passed successfully!"
                     } catch (Exception e) {
-                        echo "Code quality checks found issues: ${e.message}"
+                        echo "HTML linting found issues: ${e.message}"
                         currentBuild.result = 'UNSTABLE'
-                        echo "Marking build as UNSTABLE due to code quality issues"
+                        echo "Marking build as UNSTABLE due to linting issues"
                     }
                 }
             }
@@ -55,16 +63,16 @@ pipeline {
             steps {
                 script {
                     def fullImageName = "${DOCKER_IMAGE_NAME}:${DOCKER_IMAGE_TAG}"
-                    echo "Deploying Docker container from image: ${fullImageName}"
+                    echo "Deploying Docker container: ${fullImageName}"
 
                     // Stop and remove any existing container with the same name
                     sh "docker stop ${CONTAINER_NAME} || true"
                     sh "docker rm ${CONTAINER_NAME} || true"
 
-                    // Run the new container
+                    // Run the container
                     sh "docker run -d --name ${CONTAINER_NAME} -p ${HOST_PORT}:${CONTAINER_PORT} ${fullImageName}"
 
-                    echo "Deployment complete. Site should be accessible at http://<jenkins_agent_ip>:${HOST_PORT}"
+                    echo "Site should be accessible at http://<jenkins_agent_ip>:${HOST_PORT}"
                 }
             }
         }
@@ -81,7 +89,7 @@ pipeline {
             echo "Pipeline failed. Check console output for errors."
         }
         unstable {
-            echo "Pipeline completed with code quality issues."
+            echo "Pipeline completed with test or lint issues."
         }
     }
 }
