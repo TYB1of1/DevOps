@@ -22,7 +22,15 @@ pipeline {
                 sh 'printenv'
             }
         }
-
+        
+stage('Debug') {
+    steps {
+        sh 'whoami'
+        sh 'pwd'
+        sh 'ls -la /usr/bin/docker || echo "Docker not found"'
+        sh 'env'
+    }
+}
         stage('Setup Environment') {
             steps {
                 script {
